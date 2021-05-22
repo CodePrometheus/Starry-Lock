@@ -57,7 +57,7 @@ public @interface SLock {
      *
      * @return
      */
-    LockTimeoutStrategy lockStrategy() default LockTimeoutStrategy.GO_ON;
+    LockTimeoutStrategy lockTimeoutStrategy() default LockTimeoutStrategy.GO_ON;
 
 
     /**
