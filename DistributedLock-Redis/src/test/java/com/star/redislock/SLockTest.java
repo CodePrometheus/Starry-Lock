@@ -223,7 +223,7 @@ public class SLockTest {
      */
     @Test
     public void releaseTimeoutCustom() {
-         exception.expect(IllegalStateException.class);
+        exception.expect(IllegalStateException.class);
         timeoutService.foo8("foo", "bar");
     }
 

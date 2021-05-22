@@ -151,7 +151,7 @@ public class SLockAspect {
             logger.warn("Timeout while release Lock({})", lockInfo.getName());
         }
         if (!StringUtils.isEmpty(sLock.customReleaseTimeoutStrategy())) {
-            handleCustomReleaseTimeout(sLock.customLockTimeoutStrategy(), joinPoint);
+            handleCustomReleaseTimeout(sLock.customReleaseTimeoutStrategy(), joinPoint);
         } else {
             sLock.releaseTimeoutStrategy().handle(lockInfo);
         }
@@ -204,7 +204,7 @@ public class SLockAspect {
             // 设置可访问
             handleMethod.setAccessible(true);
         } catch (NoSuchMethodException e) {
-            throw new IllegalArgumentException("Illegal annotation param customReleaseTimeoutStrategy", e);
+            throw new IllegalArgumentException("Illegal annotation param customLockTimeoutStrategy", e);
         }
 
         Object[] args = joinPoint.getArgs();
