@@ -14,7 +14,7 @@ import java.util.concurrent.TimeUnit;
  * @Date: 05-18-2021 13:33
  */
 @Data
-public class WriteLock implements Lock {
+public class WriteLock extends Lock {
 
     private static final Logger logger = LoggerFactory.getLogger(WriteLock.class);
 
@@ -32,7 +32,8 @@ public class WriteLock implements Lock {
     @Override
     public boolean acquire() {
         try {
-            lock = redissonClient.getReadWriteLock(lockInfo.getName());
+            name = lockInfo.getName();
+            lock = redissonClient.getReadWriteLock(name);
             return lock.writeLock().tryLock(lockInfo.getWaitTime(), lockInfo.getLeaseTime(), TimeUnit.SECONDS);
         } catch (InterruptedException e) {
             logger.error(e.getMessage());

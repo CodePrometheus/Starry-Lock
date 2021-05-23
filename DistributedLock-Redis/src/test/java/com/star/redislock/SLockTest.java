@@ -55,6 +55,16 @@ public class SLockTest {
         executorService.awaitTermination(30, TimeUnit.SECONDS);
     }
 
+    @Test
+    public void multiLockTest() throws InterruptedException {
+        ExecutorService executorService = Executors.newFixedThreadPool(5);
+        IntStream.range(0, 10).forEach(i -> executorService.submit(() -> {
+            String res = starryService.updateValue(1, 9);
+            System.out.println(res);
+        }));
+        executorService.awaitTermination(60 * 5, TimeUnit.SECONDS);
+    }
+
     /**
      * 线程休眠
      */
@@ -96,7 +106,7 @@ public class SLockTest {
 
     @Test
     public void keyTest4() throws InterruptedException {
-        String res = starryService.getValue(new Starry(3, null));
+        String res = starryService.getValue(new Starry(3, null, 0));
         Assert.assertEquals(res, "success");
     }
 

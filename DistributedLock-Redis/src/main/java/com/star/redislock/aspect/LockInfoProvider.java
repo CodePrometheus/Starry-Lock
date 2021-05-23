@@ -10,6 +10,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Resource;
+import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * @Author: zzStar
@@ -34,21 +37,39 @@ public class LockInfoProvider {
      * @param sLock
      * @return
      */
-    public LockInfo get(JoinPoint joinPoint, SLock sLock) {
+    public List<LockInfo> get(JoinPoint joinPoint, SLock sLock) {
+        List<LockInfo> lockInfos = new ArrayList<>();
         MethodSignature signature = (MethodSignature) joinPoint.getSignature();
         LockType lockType = sLock.lockType();
-        String keyName = businessKey.getKeyName(joinPoint, sLock);
-        // 控制锁的粒度
-        String lockName = LOCK_NAME_PREFIX + LOCK_NAME_SEPARATOR + getName(sLock.name(), signature) + keyName;
+        Method method = businessKey.getMethod(joinPoint);
+        List<String> parameterKeys = businessKey.getParameterKey(method.getParameters(), joinPoint.getArgs());
 
         long waitTime = getWaitTime(sLock);
         long leaseTime = getLeaseTime(sLock);
-        if (leaseTime == -1 && logger.isInfoEnabled()) {
+
+
+        if (parameterKeys.size() > 0) {
+            parameterKeys.forEach(parameterKey -> {
+                String businessKeyName = businessKey.getKeyName(joinPoint, sLock, parameterKey);
+                // 控制锁的粒度
+                addLockInfo(sLock, lockInfos, signature, lockType, waitTime, leaseTime, businessKeyName);
+            });
+        } else {
+            String keyName = businessKey.getKeyName(joinPoint, sLock, null);
+            addLockInfo(sLock, lockInfos, signature, lockType, waitTime, leaseTime, keyName);
+        }
+
+        return lockInfos;
+    }
+
+    private void addLockInfo(SLock sLock, List<LockInfo> lockInfos, MethodSignature signature, LockType lockType, long waitTime, long leaseTime, String keyName) {
+        String lockName = LOCK_NAME_PREFIX + LOCK_NAME_SEPARATOR + getName(sLock.name(), signature) + keyName;
+        if (leaseTime == -1 && logger.isWarnEnabled()) {
             logger.warn("Trying to acquire Lock({}) with no expiration, " +
                     "SLock will keep prolong the lock expiration while the lock is still holding by current thread. " +
                     "This may cause dead lock in some circumstances.", lockName);
         }
-        return new LockInfo(lockType, lockName, waitTime, leaseTime);
+        lockInfos.add(new LockInfo(lockType, lockName, waitTime, leaseTime));
     }
 
 

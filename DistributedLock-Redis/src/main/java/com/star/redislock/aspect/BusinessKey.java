@@ -35,14 +35,15 @@ public class BusinessKey {
 
     private ExpressionParser parser = new SpelExpressionParser();
 
-    public String getKeyName(JoinPoint joinPoint, SLock sLock) {
+    public String getKeyName(JoinPoint joinPoint, SLock sLock, String parameterKey) {
         List<String> keyList = new ArrayList<>();
         Method method = getMethod(joinPoint);
         List<String> spelExpressionKey = getSpelExpressionKey(sLock.keys(), method, joinPoint.getArgs());
         keyList.addAll(spelExpressionKey);
 
-        List<String> parameterKey = getParameterKey(method.getParameters(), joinPoint.getArgs());
-        keyList.addAll(parameterKey);
+        if (!StringUtils.isEmpty(parameterKey)) {
+           keyList.add(parameterKey);
+        }
 
         return StringUtils.collectionToDelimitedString(keyList, "", "-", "");
     }
@@ -53,7 +54,7 @@ public class BusinessKey {
      * @param joinPoint
      * @return
      */
-    private Method getMethod(JoinPoint joinPoint) {
+    public Method getMethod(JoinPoint joinPoint) {
         MethodSignature signature = (MethodSignature) joinPoint.getSignature();
         Method method = signature.getMethod();
         // 表示声明由此Method对象表示的方法的类的Class对象是否为接口
@@ -76,7 +77,7 @@ public class BusinessKey {
      * @param parametersValues
      * @return
      */
-    private List<String> getSpelExpressionKey(String[] keys, Method method, Object[] parametersValues) {
+    public List<String> getSpelExpressionKey(String[] keys, Method method, Object[] parametersValues) {
         List<String> spelKeys = new ArrayList<>();
         for (String spelKey : spelKeys) {
             if (!ObjectUtils.isEmpty(spelKey)) {
@@ -95,7 +96,7 @@ public class BusinessKey {
      * @param parametersValues
      * @return
      */
-    private List<String> getParameterKey(Parameter[] parameters, Object[] parametersValues) {
+    public List<String> getParameterKey(Parameter[] parameters, Object[] parametersValues) {
         List<String> parameterKey = new ArrayList<>();
         for (int i = 0; i < parameters.length; i++) {
             if (parameters[i].getAnnotation(SLockKey.class) != null) {

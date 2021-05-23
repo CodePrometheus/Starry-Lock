@@ -15,4 +15,6 @@ public class Starry {
 
     private String name;
 
+    private int salary;
+
 }

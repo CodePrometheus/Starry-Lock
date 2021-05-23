@@ -2,11 +2,13 @@ package com.star.redislock.aspect;
 
 import com.star.redislock.annotation.SLock;
 import com.star.redislock.domain.LockInfo;
+import com.star.redislock.domain.LockType;
 import com.star.redislock.lock.Lock;
 import com.star.redislock.lock.LockFactory;
 import org.aspectj.lang.JoinPoint;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.AfterReturning;
+import org.aspectj.lang.annotation.AfterThrowing;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.reflect.MethodSignature;
@@ -14,11 +16,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
+import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 
 import javax.annotation.Resource;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
@@ -70,16 +75,20 @@ public class SLockAspect {
 
     @Around("@annotation(sLock)")
     public Object around(ProceedingJoinPoint joinPoint, SLock sLock) throws Throwable {
-        LockInfo lockInfo = lockInfoProvider.get(joinPoint, sLock);
-        String currentLockId = this.getCurrentLockId(joinPoint, sLock);
-        lockThread.put(currentLockId, new LockRes(lockInfo, false));
-        Lock lock = lockFactory.getLock(lockInfo);
-
+        List<LockInfo> lockInfos = lockInfoProvider.get(joinPoint, sLock);
+        List<String> currentLockIds = new ArrayList<>();
+        lockInfos.forEach(lockInfo -> {
+            String currentLockId = this.getCurrentLockId(lockInfo);
+            lockThread.put(currentLockId, new LockRes(lockInfo, false));
+            currentLockIds.add(currentLockId);
+        });
+        Lock lock = lockFactory.getLock(lockInfos.toArray(new LockInfo[]{}));
         boolean lockRes = lock.acquire();
+
         // 获取锁失败了，则进入失败的处理逻辑
         if (!lockRes) {
             if (logger.isInfoEnabled()) {
-                logger.warn("Timeout while acquiring Lock({})", lockInfo.getName());
+                logger.warn("Timeout while acquiring Lock({})", lock.getName());
             }
 
             // 自定义了获取锁失败的处理策略，则执行自定义的降级处理策略
@@ -87,23 +96,61 @@ public class SLockAspect {
                 return handleCustomLockTimeout(sLock.customLockTimeoutStrategy(), joinPoint);
             } else {
                 // 否则执行预定义的执行策略，如果没有指定预定义的策略，默认的策略为静默
-                sLock.lockTimeoutStrategy().handle(lockInfo, lock, joinPoint);
+                lockInfos.forEach(lockInfo -> {
+                    sLock.lockTimeoutStrategy().handle(lockInfo, lock, joinPoint);
+                });
             }
         }
 
-        lockThread.get(currentLockId).setLock(lock);
-        lockThread.get(currentLockId).setRes(true);
+        currentLockIds.forEach(currentLockId -> {
+            lockThread.get(currentLockId).setLock(lock);
+            lockThread.get(currentLockId).setRes(true);
+        });
 
         return joinPoint.proceed();
     }
 
 
     @AfterReturning("@annotation(sLock)")
-    public void afterReturning(JoinPoint joinPoint, SLock sLock) throws IllegalAccessException {
-        String currentLockId = this.getCurrentLockId(joinPoint, sLock);
-        releaseLock(sLock, joinPoint, currentLockId);
-        cleanUpThreadLocal(currentLockId);
+    public void afterReturning(JoinPoint joinPoint, SLock sLock) {
+        releaseLock(joinPoint, sLock);
     }
+
+    @AfterThrowing(value = "@annotation(sLock)", throwing = "ex")
+    public void afterThrowing(JoinPoint joinPoint, SLock sLock, Throwable ex) throws Throwable {
+        releaseLock(joinPoint, sLock);
+        throw ex;
+    }
+
+    /**
+     * 释放锁
+     *
+     * @param joinPoint
+     * @param sLock
+     */
+    private void releaseLock(JoinPoint joinPoint, SLock sLock) {
+        try {
+            List<LockInfo> lockInfos = lockInfoProvider.get(joinPoint, sLock);
+            if (!CollectionUtils.isEmpty(lockInfos)) {
+                if (Objects.equals(sLock.lockType(), LockType.Multi)) {
+                    String currentLockId = this.getCurrentLockId(lockInfos.get(0));
+                    releaseLock(sLock, joinPoint, currentLockId);
+                    cleanUpThreadLocal(currentLockId);
+                } else {
+                    for (LockInfo lockInfo : lockInfos) {
+                        String currentLock = this.getCurrentLockId(lockInfo);
+                        releaseLock(sLock, joinPoint, currentLock);
+                        cleanUpThreadLocal(currentLock);
+                    }
+                    lockInfos.forEach(lockInfo -> {
+                    });
+                }
+            }
+        } catch (Throwable tw) {
+            throw new RuntimeException("release lock fail ", tw);
+        }
+    }
+
 
     /**
      * 清理线程池，避免内存泄漏
@@ -224,12 +271,10 @@ public class SLockAspect {
     /**
      * 锁当前线程信息
      *
-     * @param joinPoint
-     * @param sLock
+     * @param lockInfo
      * @return
      */
-    private String getCurrentLockId(JoinPoint joinPoint, SLock sLock) {
-        LockInfo lockInfo = lockInfoProvider.get(joinPoint, sLock);
+    private String getCurrentLockId(LockInfo lockInfo) {
         String currentLock = Thread.currentThread().getId() + lockInfo.getName();
         return currentLock;
     }

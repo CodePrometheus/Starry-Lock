@@ -12,7 +12,7 @@ import java.util.concurrent.TimeUnit;
  * @Author: zzStar
  * @Date: 05-18-2021 14:20
  */
-public class FairLock implements Lock {
+public class FairLock extends Lock {
 
     private static final Logger logger = LoggerFactory.getLogger(FairLock.class);
 
@@ -30,7 +30,8 @@ public class FairLock implements Lock {
     @Override
     public boolean acquire() {
         try {
-            lock = redissonClient.getFairLock(lockInfo.getName());
+            name = lockInfo.getName();
+            lock = redissonClient.getLock(name);
             return lock.tryLock(lockInfo.getWaitTime(), lockInfo.getLeaseTime(), TimeUnit.SECONDS);
         } catch (InterruptedException e) {
             logger.error(e.getMessage());
