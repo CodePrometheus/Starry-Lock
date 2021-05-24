@@ -8,3 +8,8 @@
 ## Redis分布式锁
 
 ![锁超时处理逻辑](https://wx1.sinaimg.cn/large/7dfa0a7bly1g24obim6cnj20u80jzgnf.jpg "锁超时处理逻辑.jpg")
+
+
+## 悲观锁和乐观锁
+
+- [悲观锁和乐观锁](https://codeprometheus.github.io/Starry-Notes/#/Concurrency/%E6%82%B2%E8%A7%82%E9%94%81%E5%92%8C%E4%B9%90%E8%A7%82%E9%94%81)
