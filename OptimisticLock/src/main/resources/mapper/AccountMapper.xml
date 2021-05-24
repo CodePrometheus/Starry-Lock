@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.star.optimisticlock.mapper.AccountMapper">
+
+
+    <update id="updateDepositWithVersion" keyProperty="id" parameterType="com.star.optimisticlock.domain.Account">
+        update `lock`
+        set deposit = #{deposit},
+            version = version + 1
+        where id = #{id}
+          and version = #{version}
+    </update>
+
+    <update id="updateDeposit">
+        update `lock`
+        set deposit = #{deposit}
+        where id = #{id}
+    </update>
+
+
+    <select id="selectById" resultType="com.star.optimisticlock.domain.Account">
+        select id, deposit, version
+        from `lock`
+        where id = #{id}
+    </select>
+
+    <select id="selectByIdForUpdate" resultType="com.star.optimisticlock.domain.Account">
+        select id, deposit, version
+        from `lock`
+        where id = #{id} for update
+    </select>
+
+    <select id="getTotalDeposit" resultType="java.math.BigDecimal">
+        select sum(deposit) from `lock`
+    </select>
+
+</mapper>
